@@ -1,0 +1,266 @@
+TEST TECNICO DEVOPS
+ 
+SCENARIO INIZIALE
+Sei incaricato/a di deployare un'applicazione multi-tier in produzione su Kubernetes (sia su GCP GKE che potenzialmente su AWS EKS). L'applicazione consiste di:
+●	Backend API: App Node.js che espone API REST
+●	Database MySQL (StatefulSet)
+●	Redis Cache (StatefulSet)
+●	Frontend Nginx (DaemonSet per load balancing)
+L'infrastruttura deve essere declarative, versionabile, e seguire best practices DevOps.
+ 
+PARTE 1: INFRASTRUTTURA AS CODE (IaC)
+1.1 Su piattaforma AWS e creare l'infrastruttura base con IaC
+Requisiti:
+●	Creare un cluster Kubernetes (GKE per GCP o EKS per AWS)
+●	Creare una VPC con subnetting appropriato
+●	Configurare NAT Gateway per l'uscita da cluster
+●	Abilitare CloudSQL Proxy (GCP) oppure RDS Proxy (AWS)
+●	Configurare IAM roles e policies
+A scelta tra:
+Opzione A: OpenTofu (Terraform)
+- Struttura organizzata con .tf files separati (main, variables, outputs, kubernetes.tf)
+- Utilizzo di modules per riutilizzabilità
+- Remote state con S3/GCS
+- Variable validation e data sources
+Opzione B: AWS CDK (TypeScript)
+- Stack ben strutturati con custom Constructs
+- Configurazione di VPC, IAM, EKS
+- Best practices CDK
+Consegna:
+●	File IaC completi (git repository o zip)
+●	README con istruzioni per deploy (terraform apply o cdk deploy)
+●	Output che mostra: cluster endpoint, security groups, subnets create
+ 
+PARTE 2: HELM CHARTS
+2.1 Crea Helm charts completi per l'intera application stack
+Requisiti per ciascun chart (Backend, MySQL, Redis, Frontend):
+Chart Structure:
+charts/
+├── app-backend/
+│   ├── Chart.yaml
+│   ├── values.yaml
+│   ├── values-prod.yaml
+│   ├── values-staging.yaml
+│   ├── templates/
+│   │   ├── deployment.yaml
+│   │   ├── service.yaml
+│   │   ├── ingress.yaml
+│   │   ├── configmap.yaml
+│   │   ├── secret.yaml
+│   │   ├── hpa.yaml
+│   │   └── _helpers.tpl
+│   └── README.md
+├── mysql/
+│   └── [...template simile...]
+├── redis/
+│   └── [...template simile...]
+└── frontend/
+    └── [...template simile...]
+2.2 Configurazioni Specifiche Richieste:
+Backend Deployment:
+●	Readiness & Liveness probes configurabili
+●	Resource requests/limits
+●	Environment variables da ConfigMap e Secrets
+●	Pod Disruption Budget (PDB)
+●	ServiceAccount con RBAC minimale
+●	Init containers per migrations (es. database migrations)
+Ingress:
+- Host: api.example.com
+- TLS/SSL certificate (self-signed per test va bene)
+- Path-based routing (/api/*)
+- Annotations per GCP Ingress Controller o AWS ALB
+- Rate limiting annotations
+Volumes:
+MySQL StatefulSet:
+  - PersistentVolumeClaim da 10Gi
+  - mountPath: /var/lib/mysql/data
+  - storageClassName: standard (GCP) o gp3 (AWS)
+  
+Redis StatefulSet:
+  - PersistentVolumeClaim da 5Gi
+  - AOF persistence abilitata
+  
+Backend:
+  - emptyDir per logs temporanei
+  - ConfigMap per config files
+Services:
+●	Backend: ClusterIP + optional LoadBalancer per test
+●	MySQL: Headless Service per StatefulSet
+●	Redis: ClusterIP
+Networking:
+●	NetworkPolicy per isolare traffic tra pods
+●	Solo backend → mysql/redis
+●	Solo frontend → backend
+ 
+PARTE 3: DEPLOYMENT & TROUBLESHOOTING - 20%
+3.1 Crea uno script di deployment
+Creare uno script (bash) che:
+# deploy.sh
+
+# 1. Valida i charts Helm
+helm lint charts/*
+
+# 2. Sostituisci le variabili di environment
+# 3. Deploy nello specifico namespace con Helm
+# 4. Attendi che i rollout siano completi
+# 5. Esegui smoke tests di base
+# 6. Output status del deployment
+Smoke tests minimali:
+●	Verifica che tutti i pods siano running
+●	Verifica che gli Ingress abbiano IP/DNS assegnato
+●	Test curl endpoint /health dell'API
+●	Verifica connessione MySQL da pod (psql -c "SELECT 1")
+●	Verifica connessione Redis (redis-cli PING)
+3.2 Debugging Scenario
+Fornisci i comandi per diagnosticare e risolvere questi scenari:
+1.	Pod in CrashLoopBackOff
+
+- Quali comandi usi per investigare?
+- Quali possibili cause per un'API backend?
+2.	
+Ingress non riceve traffico
+
+- Come verifichi la configurazione?
+- Come testi routing?
+3.	
+MySQL non si connette
+
+- Come verifichi connectivity da backend pod?
+- Quali network policies potrebbero bloccare?
+
+ 
+
+PARTE 4: CICD
+4.1 CI/CD Pipeline
+●	Bitbucket pipeline workflow per build e push di Docker image
+●	Automated Helm chart deployment su push a main branch
+●	Smoke tests post-deploy
+4.2 Monitoring & Logging
+●	Aggiungi sidecar Prometheus per metriche
+●	Fluent-bit sidecar per log aggregation
+●	ServiceMonitor CustomResource
+4.3 Disaster Recovery
+●	Script di backup per MySQL
+●	Disaster recovery procedure document
+4.4 Cost Optimization
+●	Document ottimizzazioni di costi per GCP/AWS
+●	Calcolo approssimativo dei costi mensili
+
+PARTE 5: SERVERLESS ARCHITECTURE CON AWS LAMBDA & EVENTBRIDGE
+
+Contesto Scenario
+L'applicazione ha crescenti necessità di processing asincrono e event-driven:
+●	Notifiche via email post-evento
+●	Elaborazione batch di dati
+●	Sincronizzazione dati tra servizi
+●	Retry automatici e dead-letter queue
+●	Audit logging di tutti gli eventi
+5.1 Architettura Lambda da Implementare
+Definisci e implementa con IaC (OpenTofu/CDK) le seguenti Lambda functions:
+Lambda 1: Order Processor (Core)
+Trigger: API Gateway POST /api/orders
+Responsabilità:
+  - Validazione ordine
+  - Persistenza su DynamoDB
+  - Pubblicazione evento OrderCreated su EventBridge
+  - Timeout: 30s
+  - Memory: 512MB
+  - Concurrency: reserved 10, provisioned 5
+  - VPC: Sì (accesso a RDS/ElastiCache)
+  - IAM: Policy minimalista (least privilege)
+  - Environment variables: DB_HOST, CACHE_ENDPOINT, etc
+  - Layers: shared utility code
+Lambda 2: Email Notifier (Event-driven)
+Trigger: EventBridge rule "order.created"
+Responsabilità:
+  - Riceve evento OrderCreated da EventBridge
+  - Formatta email template
+  - Invia via SES
+  - Retry: 2 tentativi con backoff esponenziale
+  - DLQ: SQS per fallimenti finali
+  - Timeout: 60s
+  - Memory: 256MB
+  - VPC: No (SES è AWS-managed)
+  - Logging: CloudWatch con structured JSON
+Lambda 3: Data Sync Service (Scheduled)
+Trigger: EventBridge rule "cron(0 2 * * ? *)" (daily 2AM)
+Responsabilità:
+  - Sync dati da RDS → S3 (data lake)
+  - Compressione + encryption
+  - Notifica su SNS al completamento
+  - Error handling con email alerts
+  - Timeout: 900s (15min)
+  - Memory: 3008MB (max per Lambda)
+  - VPC: Sì
+  - Ephemeral storage: /tmp per temp files
+  - X-Ray tracing abilitato
+Lambda 4: DLQ Processor (Monitoring)
+Trigger: SQS queue (DLQ da Email Notifier)
+Responsabilità:
+  - Monitora messaggi falliti
+  - Notifica team via SNS + Slack
+  - Archivia failure logs su S3
+  - Implementa retry manuale
+  - Timeout: 120s
+  - Memory: 512MB
+5.2 EventBridge Configuration - Dettagliato
+Event Bus Setup
+Requisiti:
+- Custom event bus: "order-events" (non default)
+- Formato eventi: JSON Schema validated
+- Retention policy: 1 ora
+- Archive: Enable con retention 30 giorni per audit
+
+5.3 Implementazione IaC delle Lambda (OpenTofu o CDK)
+Struttura Directory
+infrastructure/
+├── modules/
+│   └── lambda/
+│       ├── main.tf / lambda.py
+│       ├── variables.tf
+│       ├── outputs.tf
+│       ├── iam.tf (IAM roles & policies)
+│       └── layers.tf
+├── lambda/
+│   ├── order-processor/
+│   │   ├── handler.py (o .js)
+│   │   ├── requirements.txt
+│   │   ├── package.json (se TypeScript)
+│   │   └── __init__.py
+│   ├── email-notifier/
+│   ├── data-sync/
+│   └── dlq-processor/
+├── eventbridge/
+│   ├── event-bus.tf
+│   └── rules.tf
+└── sqs/
+    ├── dlq.tf
+    └── standard-queues.tf
+Requisiti Specifici IaC
+Per OpenTofu:
+
+# Lambda resource deve includere:
+- source: archive della function
+- runtime: python3.11 (o node.js 18+)
+- handler: module.handler
+- role: IAM role creato
+- environment: variabili di runtime
+- vpc_config: security groups, subnets
+- reserved_concurrent_executions: 10
+- ephemeral_storage: per /tmp
+- tracing_config: X-Ray
+- layers: custom layers
+- timeout: specifico per funzione
+- memory_size: appropriato
+- depends_on: per ordering
+
+Per AWS CDK (TypeScript):
+// Requisiti:
+- Utilizzo di aws_lambda.Function (non Function.from...)
+- Environment variables passate tramite environment prop
+- VPC config con vpc e subnets
+- Tracing: lambda.Tracing.ACTIVE
+- Layers come importati da S3/codeBuild
+- Dead letter queue mapping
+- Reserved concurrent executions
+

@@ -1,0 +1,83 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: read  # This is required for actions/checkout
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 1. Frontend Build (Next.js)
+      - name: Setup Node.js (Frontend)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: app/frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        working-directory: ./app/frontend
+        run: npm ci
+
+      - name: Build Frontend
+        working-directory: ./app/frontend
+        run: npm run build
+
+      # 2. Infrastructure Deploy (CDK)
+      - name: Setup Node.js (Infrastructure)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Updated to match Lambda runtime
+          cache: 'npm'
+          cache-dependency-path: infrastructure/package-lock.json
+
+      - name: Install CDK Dependencies
+        working-directory: ./infrastructure
+        run: npm ci
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }} # O usa AWS_ACCESS_KEY_ID/SECRET se preferisci IAM User
+          aws-region: ${{ secrets.AWS_REGION }}
+          # Se usi IAM User invece di OIDC, scommenta sotto e commenta role-to-assume
+          # aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          # aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: CDK Deploy
+        working-directory: ./infrastructure
+        run: npx cdk deploy --require-approval never --outputs-file outputs.json
+        env:
+          # Passa eventuali variabili d'ambiente necessarie al CDK
+          CI: true
+
+      # 3. Post-Deploy Smoke Tests (from deploy.sh logic)
+      - name: Smoke Tests
+        working-directory: ./infrastructure
+        run: |
+          API_URL=$(cat outputs.json | grep -o '"BackendApiURL": "[^"]*"' | cut -d'"' -f4)
+          CF_URL=$(cat outputs.json | grep -o '"CloudFrontURL": "[^"]*"' | cut -d'"' -f4)
+          
+          echo "Testing Frontend: https://$CF_URL"
+          curl -f -I https://$CF_URL || exit 1
+          
+          echo "Testing Backend API Health: $API_URL/health"
+          curl -f $API_URL/health || exit 1
+          
+          # Optional: Add DB/Redis connectivity tests if feasible within CI/CD security context
+          # curl -f $API_URL/test-db || echo "DB Test Skipped/Failed"
+
