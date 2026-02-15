@@ -2,7 +2,16 @@ const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
 const { EventBridgeClient, PutEventsCommand } = require("@aws-sdk/client-eventbridge");
 const { v4: uuidv4 } = require("uuid");
-const { validateOrder } = require("/opt/nodejs/utils"); 
+
+const validateOrder = (order) => {
+  if (!order.items || !Array.isArray(order.items) || order.items.length === 0) {
+    return { isValid: false, message: "Order must contain at least one item" };
+  }
+  if (!order.totalAmount || order.totalAmount <= 0) {
+    return { isValid: false, message: "Total amount must be positive" };
+  }
+  return { isValid: true };
+};
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient);
@@ -64,4 +73,3 @@ exports.handler = async (event) => {
     };
   }
 };
-

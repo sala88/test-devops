@@ -1,9 +1,3 @@
-data "archive_file" "shared_layer" {
-  type        = "zip"
-  source_dir  = "${path.module}/../../../app/backend/shared-layer"
-  output_path = "${path.module}/build/shared-layer.zip"
-}
-
 data "archive_file" "order_processor" {
   type        = "zip"
   source_dir  = "${path.module}/../../../infrastructure/lambda/order-processor"
@@ -26,12 +20,6 @@ data "archive_file" "dlq_processor" {
   type        = "zip"
   source_dir  = "${path.module}/../../../infrastructure/lambda/dlq-processor"
   output_path = "${path.module}/build/dlq-processor.zip"
-}
-
-resource "aws_lambda_layer_version" "shared" {
-  layer_name          = "${var.project_name}-${var.environment}-shared-layer"
-  compatible_runtimes = ["nodejs20.x"]
-  filename            = data.archive_file.shared_layer.output_path
 }
 
 resource "aws_dynamodb_table" "orders" {
@@ -104,8 +92,6 @@ resource "aws_lambda_function" "order_processor" {
   memory_size                    = 512
   timeout                        = 30
   reserved_concurrent_executions = 10
-
-  layers = [aws_lambda_layer_version.shared.arn]
 
   tracing_config {
     mode = "Active"
