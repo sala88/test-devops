@@ -20,14 +20,13 @@ terraform {
     }
   }
 
-  # Remote State configuration (commented out for initial local testing)
-  # backend "s3" {
-  #   bucket         = "my-terraform-state-bucket"
-  #   key            = "devops/terraform.tfstate"
-  #   region         = "eu-west-1"
-  #   encrypt        = true
-  #   dynamodb_table = "terraform-lock"
-  # }
+  backend "s3" {
+    bucket         = "my-terraform-state-bucket"
+    key            = "devops/terraform.tfstate"
+    region         = "eu-west-1"
+    encrypt        = true
+    dynamodb_table = "terraform-lock"
+  }
 }
 
 provider "aws" {

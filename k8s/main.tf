@@ -18,14 +18,13 @@ terraform {
     }
   }
 
-  # Configurazione Remote State (da decommentare dopo setup S3/DynamoDB)
-  # backend "s3" {
-  #   bucket         = "my-terraform-state-bucket"
-  #   key            = "k8s/terraform.tfstate"
-  #   region         = "eu-south-1"
-  #   dynamodb_table = "terraform-locks"
-  #   encrypt        = true
-  # }
+  backend "s3" {
+    bucket         = "my-terraform-state-bucket"
+    key            = "k8s/terraform.tfstate"
+    region         = "eu-south-1"
+    dynamodb_table = "terraform-locks"
+    encrypt        = true
+  }
 }
 
 provider "aws" {
