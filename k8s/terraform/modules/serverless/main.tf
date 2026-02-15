@@ -6,25 +6,25 @@ data "archive_file" "shared_layer" {
 
 data "archive_file" "order_processor" {
   type        = "zip"
-  source_dir  = "${path.module}/../../../app/backend/order-processor"
+  source_dir  = "${path.module}/../../../infrastructure/lambda/order-processor"
   output_path = "${path.module}/build/order-processor.zip"
 }
 
 data "archive_file" "email_notifier" {
   type        = "zip"
-  source_dir  = "${path.module}/../../../app/backend/email-notifier"
+  source_dir  = "${path.module}/../../../infrastructure/lambda/email-notifier"
   output_path = "${path.module}/build/email-notifier.zip"
 }
 
 data "archive_file" "data_sync" {
   type        = "zip"
-  source_dir  = "${path.module}/../../../app/backend/data-sync"
+  source_dir  = "${path.module}/../../../infrastructure/lambda/data-sync"
   output_path = "${path.module}/build/data-sync.zip"
 }
 
 data "archive_file" "dlq_processor" {
   type        = "zip"
-  source_dir  = "${path.module}/../../../app/backend/dlq-processor"
+  source_dir  = "${path.module}/../../../infrastructure/lambda/dlq-processor"
   output_path = "${path.module}/build/dlq-processor.zip"
 }
 

@@ -1,2 +1,7 @@
 k8s/app/frontend/node_modules/
-
+k8s/app/frontend/node_modules/package-lock.json
+k8s/app/backend/order-processor/node_modules/
+k8s/app/backend/order-processor/package-lock.json
+k8s/app/backend/data-sync/node_modules/
+k8s/app/backend/data-sync/package-lock.json
+k8s/app/backend/node_modules/
