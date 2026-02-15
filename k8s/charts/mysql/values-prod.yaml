@@ -1,0 +1,12 @@
+replicaCount: 3 # HA setup? Or just 1? StatefulSet usually implies potential for replication but MySQL needs complex replication config. 
+# For this exercise, I will assume single primary or stick to 1 replica unless I implement replication sidecars.
+# Given the complexity, I'll keep it at 1 for simplicity unless user asked for HA cluster.
+# But "StatefulSet" implies we want stable identity.
+# Let's just set resources higher for prod.
+persistence:
+  size: 20Gi
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi

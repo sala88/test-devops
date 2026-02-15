@@ -1,0 +1,35 @@
+replicaCount: 1
+
+image:
+  repository: mysql
+  pullPolicy: IfNotPresent
+  tag: "8.0"
+
+service:
+  type: ClusterIP
+  port: 3306
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+persistence:
+  enabled: true
+  storageClass: "gp3" # AWS
+  accessMode: ReadWriteOnce
+  size: 10Gi
+
+auth:
+  rootPassword: "changeme"
+  database: "appdb"
+  username: "appuser"
+  password: "changeme"
+
+config:
+  my.cnf: |
+    [mysqld]
+    default-authentication-plugin=mysql_native_password

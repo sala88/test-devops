@@ -1,0 +1,47 @@
+image: atlassian/default-image:3
+
+pipelines:
+  branches:
+    main:
+      - step:
+          name: Build and push backend image
+          image: docker:20.10.16
+          services:
+            - docker
+          script:
+            - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD" "$DOCKER_REGISTRY"
+            - export BACKEND_TAG="$DOCKER_REGISTRY/$DOCKER_BACKEND_IMAGE:$BITBUCKET_BUILD_NUMBER"
+            - docker build -t "$BACKEND_TAG" app/backend
+            - docker push "$BACKEND_TAG"
+      - step:
+          name: Build and push frontend image
+          image: docker:20.10.16
+          services:
+            - docker
+          script:
+            - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD" "$DOCKER_REGISTRY"
+            - export FRONTEND_TAG="$DOCKER_REGISTRY/$DOCKER_FRONTEND_IMAGE:$BITBUCKET_BUILD_NUMBER"
+            - docker build -t "$FRONTEND_TAG" app/frontend
+            - docker push "$FRONTEND_TAG"
+      - step:
+          name: Deploy with Helm and run smoke tests
+          script:
+            - mkdir -p ~/.kube
+            - echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
+            - export BACKEND_TAG="$DOCKER_REGISTRY/$DOCKER_BACKEND_IMAGE:$BITBUCKET_BUILD_NUMBER"
+            - export FRONTEND_TAG="$DOCKER_REGISTRY/$DOCKER_FRONTEND_IMAGE:$BITBUCKET_BUILD_NUMBER"
+            - helm lint charts/*
+            - helm upgrade --install app-backend charts/app-backend --namespace "$K8S_NAMESPACE" --create-namespace --set image.repository="$BACKEND_TAG"
+            - helm upgrade --install frontend charts/frontend --namespace "$K8S_NAMESPACE" --set image.repository="$FRONTEND_TAG"
+            - kubectl rollout status deployment/app-backend -n "$K8S_NAMESPACE" --timeout=300s
+            - kubectl rollout status daemonset/frontend -n "$K8S_NAMESPACE" --timeout=300s
+            - kubectl get pods -n "$K8S_NAMESPACE"
+            - kubectl get ingress -n "$K8S_NAMESPACE"
+            - BACKEND_IP=$(kubectl get svc app-backend -n "$K8S_NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+            - curl -f "http://$BACKEND_IP/health"
+
+definitions:
+  services:
+    docker:
+      memory: 2048
+

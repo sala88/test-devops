@@ -1,0 +1,8 @@
+replicaCount: 1 # Single instance for staging usually enough, or 3 for HA? Prompt said StatefulSet.
+persistence:
+  size: 5Gi
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi

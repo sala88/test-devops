@@ -1,0 +1,23 @@
+{{- if .Values.monitoring.prometheus.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "app-backend.fullname" . }}-prometheus-config
+  labels:
+    {{- include "app-backend.labels" . | nindent 4 }}
+data:
+  prometheus.yml: |
+{{ .Values.monitoring.prometheus.config | indent 4 }}
+{{- end }}
+---
+{{- if .Values.monitoring.fluentbit.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "app-backend.fullname" . }}-fluentbit-config
+  labels:
+    {{- include "app-backend.labels" . | nindent 4 }}
+data:
+  fluent-bit.conf: |
+{{ .Values.monitoring.fluentbit.config | indent 4 }}
+{{- end }}

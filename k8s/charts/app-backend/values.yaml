@@ -1,0 +1,26 @@
+monitoring:
+  prometheus:
+    enabled: false
+    port: 9090
+    image: prom/prometheus:latest
+    config: |
+      global:
+        scrape_interval: 15s
+      scrape_configs:
+        - job_name: 'app-backend'
+          static_configs:
+            - targets: ['localhost:3000']
+
+  fluentbit:
+    enabled: false
+    image: fluent/fluent-bit:latest
+    config: |
+      [SERVICE]
+          Flush        1
+          Log_Level    info
+      [INPUT]
+          Name         tail
+          Path         /var/log/app/*.log
+      [OUTPUT]
+          Name         stdout
+          Match        *

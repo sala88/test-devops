@@ -1,0 +1,7 @@
+replicaCount: 1 # Redis Cluster requires more complex setup, sticking to simple StatefulSet for cache
+persistence:
+  size: 5Gi
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi

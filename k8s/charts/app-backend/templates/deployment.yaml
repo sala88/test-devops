@@ -1,0 +1,123 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "app-backend.fullname" . }}
+  labels:
+    {{- include "app-backend.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "app-backend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "app-backend.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "app-backend.fullname" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      
+      {{- if .Values.migrations.enabled }}
+      initContainers:
+        - name: migrations
+          image: "{{ .Values.migrations.image.repository }}:{{ .Values.migrations.image.tag }}"
+          command: {{ .Values.migrations.command | toJson }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "app-backend.fullname" . }}-config
+            - secretRef:
+                name: {{ include "app-backend.fullname" . }}-secret
+      {{- end }}
+
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "app-backend.fullname" . }}-config
+            - secretRef:
+                name: {{ include "app-backend.fullname" . }}-secret
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/app
+        
+        {{- if .Values.monitoring.prometheus.enabled }}
+        - name: prometheus
+          image: "{{ .Values.monitoring.prometheus.image }}"
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+          ports:
+            - containerPort: {{ .Values.monitoring.prometheus.port }}
+              name: prometheus
+          volumeMounts:
+            - name: prometheus-config
+              mountPath: /etc/prometheus
+        {{- end }}
+
+        {{- if .Values.monitoring.fluentbit.enabled }}
+        - name: fluent-bit
+          image: "{{ .Values.monitoring.fluentbit.image }}"
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/app
+            - name: fluentbit-config
+              mountPath: /fluent-bit/etc/
+        {{- end }}
+
+      volumes:
+        - name: logs
+          emptyDir: {}
+        {{- if .Values.monitoring.prometheus.enabled }}
+        - name: prometheus-config
+          configMap:
+            name: {{ include "app-backend.fullname" . }}-prometheus-config
+        {{- end }}
+        {{- if .Values.monitoring.fluentbit.enabled }}
+        - name: fluentbit-config
+          configMap:
+            name: {{ include "app-backend.fullname" . }}-fluentbit-config
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

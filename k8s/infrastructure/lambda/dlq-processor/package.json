@@ -1,0 +1,12 @@
+{
+  "name": "dlq-processor",
+  "version": "1.0.0",
+  "description": "Lambda for processing DLQ messages (archiving, notification)",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/client-sns": "^3.0.0",
+    "axios": "^1.0.0"
+  }
+}
+

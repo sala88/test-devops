@@ -1,0 +1,4 @@
+replicaCount: 1
+kind: Deployment
+env:
+  NEXT_PUBLIC_API_URL: "https://staging-api.example.com"

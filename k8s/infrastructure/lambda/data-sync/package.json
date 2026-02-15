@@ -1,0 +1,17 @@
+{
+  "name": "data-sync",
+  "version": "1.0.0",
+  "description": "Lambda for syncing RDS data to S3 data lake",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/client-sns": "^3.0.0",
+    "@aws-sdk/client-secrets-manager": "^3.0.0",
+    "aws-xray-sdk-core": "^3.5.0",
+    "mysql2": "^3.0.0"
+  }
+}
+
