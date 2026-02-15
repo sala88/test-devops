@@ -1,24 +1,38 @@
+declare const require: any;
+declare const exports: any;
+declare const process: any;
+
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
 const { EventBridgeClient, PutEventsCommand } = require("@aws-sdk/client-eventbridge");
 const { v4: uuidv4 } = require("uuid");
-// Utilità dal Layer condiviso (supponendo che il layer venga montato in /opt/nodejs)
-// In locale o test, potremmo dover gestire il path diversamente
-const { validateOrder } = require("/opt/nodejs/utils"); 
+
+type ValidationResult = {
+  isValid: boolean;
+  message?: string;
+};
+
+const validateOrder = (order: any): ValidationResult => {
+  if (!order.items || !Array.isArray(order.items) || order.items.length === 0) {
+    return { isValid: false, message: "Order must contain at least one item" };
+  }
+  if (!order.totalAmount || order.totalAmount <= 0) {
+    return { isValid: false, message: "Total amount must be positive" };
+  }
+  return { isValid: true };
+};
 
 const ddbClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(ddbClient);
 const ebClient = new EventBridgeClient({});
 
-exports.handler = async (event) => {
+exports.handler = async (event: any) => {
   console.log("Received event:", JSON.stringify(event, null, 2));
 
   try {
     const body = JSON.parse(event.body);
     
-    // 1. Validazione (usando codice condiviso)
-    // Se stiamo eseguendo senza layer locale, fallback o mock
-    let validation = { isValid: true };
+    let validation: ValidationResult = { isValid: true };
     try {
       validation = validateOrder(body);
     } catch (e) {
@@ -62,7 +76,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({ message: "Order created", orderId }),
     };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error processing order:", error);
     return {
       statusCode: 500,

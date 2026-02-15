@@ -1,3 +1,7 @@
+declare const require: any;
+declare const exports: any;
+declare const process: any;
+
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
 const axios = require("axios");
@@ -9,16 +13,14 @@ const S3_BUCKET = process.env.DLQ_ARCHIVE_BUCKET;
 const SNS_TOPIC_ARN = process.env.SNS_TOPIC_ARN;
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
 
-exports.handler = async (event) => {
+exports.handler = async (event: any) => {
   console.log(`Processing ${event.Records.length} DLQ messages...`);
 
-  const results = await Promise.allSettled(event.Records.map(async (record) => {
+  const results = await Promise.allSettled(event.Records.map(async (record: any) => {
     const messageId = record.messageId;
     const timestamp = new Date().toISOString();
     
     try {
-      // 1. Archive to S3
-      // Structure: dlq-archive/YYYY/MM/DD/messageId.json
       const datePath = timestamp.split("T")[0].replace(/-/g, "/");
       const key = `dlq-archive/${datePath}/${messageId}.json`;
       
@@ -27,7 +29,7 @@ exports.handler = async (event) => {
         timestamp,
         attributes: record.attributes,
         messageAttributes: record.messageAttributes,
-        body: record.body, // The original failed message
+        body: record.body,
         error: "Processed from DLQ"
       };
 
@@ -40,7 +42,6 @@ exports.handler = async (event) => {
 
       console.log(`Archived message ${messageId} to s3://${S3_BUCKET}/${key}`);
 
-      // 2. Notify via SNS
       const subject = `DLQ Alert: Message ${messageId}`;
       const message = `A message has failed processing and was captured in the DLQ.\n\nMessage ID: ${messageId}\nTimestamp: ${timestamp}\nArchived at: s3://${S3_BUCKET}/${key}\n\nBody Preview: ${record.body.substring(0, 200)}...`;
 
@@ -50,7 +51,6 @@ exports.handler = async (event) => {
         Message: message
       }));
 
-      // 3. Notify via Slack (if configured)
       if (SLACK_WEBHOOK_URL) {
         await axios.post(SLACK_WEBHOOK_URL, {
           text: `🚨 *DLQ Alert* 🚨\n*Message ID:* ${messageId}\n*Archived:* \`${key}\`\n*Preview:* \`${record.body.substring(0, 100)}...\``
@@ -60,13 +60,12 @@ exports.handler = async (event) => {
 
       return { status: "success", messageId };
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Failed to process DLQ message ${messageId}:`, error);
-      throw error; // Let Lambda retry this specific batch item (if partial batch response configured) or fail the batch
+      throw error;
     }
   }));
 
-  // Log summary
   const successes = results.filter(r => r.status === 'fulfilled').length;
   const failures = results.filter(r => r.status === 'rejected').length;
   console.log(`Batch complete. Success: ${successes}, Failed: ${failures}`);

@@ -1,3 +1,7 @@
+declare const require: any;
+declare const exports: any;
+declare const process: any;
+
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
 const { SecretsManagerClient, GetSecretValueCommand } = require("@aws-sdk/client-secrets-manager");
@@ -10,7 +14,6 @@ const { promisify } = require("util");
 const stream = require("stream");
 const pipeline = promisify(stream.pipeline);
 
-// Wrap AWS SDK v3 clients with X-Ray
 const s3 = AWSXRay.captureAWSv3Client(new S3Client());
 const sns = AWSXRay.captureAWSv3Client(new SNSClient());
 const secretsManager = AWSXRay.captureAWSv3Client(new SecretsManagerClient());
@@ -19,23 +22,20 @@ const BUCKET_NAME = process.env.DATA_LAKE_BUCKET_NAME;
 const SNS_TOPIC_ARN = process.env.SNS_TOPIC_ARN;
 const DB_SECRET_ARN = process.env.DB_SECRET_ARN;
 
-exports.handler = async (event) => {
+exports.handler = async (event: any) => {
   console.log("Starting Data Sync Service...");
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const tempFilePath = path.join("/tmp", `orders-backup-${timestamp}.json.gz`);
   const s3Key = `daily-backups/${new Date().getFullYear()}/${new Date().getMonth() + 1}/orders-${timestamp}.json.gz`;
 
-  let connection;
+  let connection: any;
 
   try {
-    // 1. Retrieve DB Credentials
     console.log("Retrieving DB credentials...");
     const secretResponse = await secretsManager.send(new GetSecretValueCommand({ SecretId: DB_SECRET_ARN }));
-    const dbCredentials = JSON.parse(secretResponse.SecretString);
+    const dbCredentials = JSON.parse(secretResponse.SecretString as string);
 
-    // 2. Connect to RDS
     console.log("Connecting to RDS...");
-    // Manually create a subsegment for MySQL connection
     const segment = AWSXRay.getSegment();
     const subsegment = segment.addNewSubsegment('MySQL Query');
     
@@ -46,15 +46,14 @@ exports.handler = async (event) => {
       database: dbCredentials.dbname || 'appdb',
     });
 
-    // 3. Query Data (Example: Sync Orders)
     console.log("Querying data...");
-    let rows = [];
+    let rows: any[] = [];
     try {
       const [result] = await connection.execute("SELECT * FROM orders");
-      rows = result;
+      rows = result as any[];
       subsegment.addAnnotation('recordCount', rows.length);
       console.log(`Fetched ${rows.length} records.`);
-    } catch (dbError) {
+    } catch (dbError: any) {
       console.error("Database Query Failed:", dbError);
       subsegment.addError(dbError);
       throw dbError;
@@ -62,7 +61,6 @@ exports.handler = async (event) => {
       subsegment.close();
     }
 
-    // 4. Compress and Write to /tmp
     console.log("Compressing data to /tmp...");
     await pipeline(
       stream.Readable.from(JSON.stringify(rows)),
@@ -70,9 +68,7 @@ exports.handler = async (event) => {
       fs.createWriteStream(tempFilePath)
     );
 
-    // 5. Upload to S3 (Encrypted)
     console.log(`Uploading to S3 bucket: ${BUCKET_NAME}, key: ${s3Key}...`);
-    // Use createReadStream for better memory management
     const fileStream = fs.createReadStream(tempFilePath);
     
     await s3.send(new PutObjectCommand({
@@ -83,7 +79,6 @@ exports.handler = async (event) => {
       ContentType: "application/gzip"
     }));
 
-    // 6. Notify Success via SNS
     console.log("Sending success notification...");
     await sns.send(new PublishCommand({
       TopicArn: SNS_TOPIC_ARN,
@@ -94,10 +89,9 @@ exports.handler = async (event) => {
     console.log("Data Sync completed successfully.");
     return { status: "success", recordsSynced: rows.length, s3Key };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Data Sync Failed:", error);
 
-    // 7. Error Handling with Email Alerts (via SNS)
     try {
       await sns.send(new PublishCommand({
         TopicArn: SNS_TOPIC_ARN,
@@ -105,13 +99,13 @@ exports.handler = async (event) => {
         Message: `Data Sync Service failed. Error: ${error.message}\nStack: ${error.stack}`
       }));
       console.log("Error notification sent.");
-    } catch (snsError) {
+    } catch (snsError: any) {
       console.error("Failed to send error notification:", snsError);
     }
 
-    throw error; // Fail the Lambda so it shows in metrics/DLQ
+    throw error;
   } finally {
     if (connection) await connection.end();
-    if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath); // Cleanup /tmp
+    if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
   }
 };

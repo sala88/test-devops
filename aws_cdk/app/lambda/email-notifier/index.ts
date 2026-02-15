@@ -1,8 +1,12 @@
+declare const require: any;
+declare const exports: any;
+declare const process: any;
+
 const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
 
 const ses = new SESClient();
 
-exports.handler = async (event) => {
+exports.handler = async (event: any) => {
   console.log("Received event:", JSON.stringify(event, null, 2));
 
   try {
@@ -17,8 +21,6 @@ exports.handler = async (event) => {
     const userId = detail.user_id;
     const amount = detail.amount;
     
-    // In un caso reale, recupereremmo l'email dell'utente dal DB o Cognito.
-    // Qui usiamo una mail simulata o passata nell'evento se presente.
     const recipientEmail = detail.email || "simulator@example.com"; 
 
     const params = {
@@ -47,8 +49,8 @@ exports.handler = async (event) => {
 
     return { status: "success", message: "Email sent" };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error processing event:", error);
-    throw error; // Rilancia l'errore per attivare il retry/DLQ
+    throw error;
   }
 };

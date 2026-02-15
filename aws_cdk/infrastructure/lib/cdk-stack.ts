@@ -198,15 +198,6 @@ export class CdkStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY, // For dev/test only
     });
 
-    // Shared Layer
-    // Note: In a real CI/CD pipeline, this code would likely be imported from S3 (CodeBuild artifact)
-    // code: lambda.Code.fromBucket(bucket, 'shared-layer.zip')
-    const sharedLayer = new lambda.LayerVersion(this, 'SharedLayer', {
-      code: lambda.Code.fromAsset(path.join(__dirname, '../../app/backend/shared-layer')),
-      compatibleRuntimes: [lambda.Runtime.NODEJS_20_X],
-      description: 'Shared utility code',
-    });
-
     // Order DLQ
     const orderDlq = new sqs.Queue(this, 'OrderDlq', {
       retentionPeriod: cdk.Duration.days(14),
@@ -215,8 +206,8 @@ export class CdkStack extends cdk.Stack {
     // Order Processor Lambda
     const orderProcessorLambda = new lambda.Function(this, 'OrderProcessorLambda', {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: 'index.handler',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../../app/backend/order-processor')),
+      handler: 'dist/index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../app/lambda/order-processor')),
       memorySize: 512,
       timeout: cdk.Duration.seconds(30),
       reservedConcurrentExecutions: 10,
@@ -224,7 +215,6 @@ export class CdkStack extends cdk.Stack {
       deadLetterQueue: orderDlq,
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-      layers: [sharedLayer],
       environment: {
         DYNAMODB_TABLE: ordersTableNode.tableName,
         DB_HOST: dbInstance.dbInstanceEndpointAddress,
@@ -294,8 +284,8 @@ export class CdkStack extends cdk.Stack {
     // Email Notifier Lambda
     const emailNotifierLambda = new lambda.Function(this, 'EmailNotifierLambda', {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: 'index.handler',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../../app/backend/email-notifier')),
+      handler: 'dist/index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../app/lambda/email-notifier')),
       memorySize: 256,
       timeout: cdk.Duration.seconds(60),
       reservedConcurrentExecutions: 10,
@@ -361,8 +351,8 @@ export class CdkStack extends cdk.Stack {
     // Data Sync Lambda
     const dataSyncLambda = new lambda.Function(this, 'DataSyncLambda', {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: 'index.handler',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../../app/backend/data-sync')),
+      handler: 'dist/index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../app/lambda/data-sync')),
       memorySize: 3008, // High memory for processing
       timeout: cdk.Duration.seconds(900), // 15 minutes
       reservedConcurrentExecutions: 2,
@@ -396,8 +386,8 @@ export class CdkStack extends cdk.Stack {
     // DLQ Processor Lambda
     const dlqProcessorLambda = new lambda.Function(this, 'DLQProcessorLambda', {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: 'index.handler',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../../app/backend/dlq-processor')),
+      handler: 'dist/index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../app/lambda/dlq-processor')),
       memorySize: 512,
       timeout: cdk.Duration.seconds(120),
       reservedConcurrentExecutions: 5,

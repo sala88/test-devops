@@ -37,7 +37,32 @@ jobs:
         working-directory: ./app/frontend
         run: npm run build
 
-      # 2. Infrastructure Deploy (CDK)
+      # 2. Build Lambda Functions (TypeScript)
+      - name: Install & Build Order Processor Lambda
+        working-directory: ./app/lambda/order-processor
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install & Build Email Notifier Lambda
+        working-directory: ./app/lambda/email-notifier
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install & Build Data Sync Lambda
+        working-directory: ./app/lambda/data-sync
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install & Build DLQ Processor Lambda
+        working-directory: ./app/lambda/dlq-processor
+        run: |
+          npm ci
+          npm run build
+
+      # 3. Infrastructure Deploy (CDK)
       - name: Setup Node.js (Infrastructure)
         uses: actions/setup-node@v4
         with:
@@ -65,7 +90,7 @@ jobs:
           # Passa eventuali variabili d'ambiente necessarie al CDK
           CI: true
 
-      # 3. Post-Deploy Smoke Tests (from deploy.sh logic)
+      # 4. Post-Deploy Smoke Tests (from deploy.sh logic)
       - name: Smoke Tests
         working-directory: ./infrastructure
         run: |
@@ -80,4 +105,3 @@ jobs:
           
           # Optional: Add DB/Redis connectivity tests if feasible within CI/CD security context
           # curl -f $API_URL/test-db || echo "DB Test Skipped/Failed"
-
